@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
@@ -16,6 +16,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🔐 beveiliging
+def verify_key(x_api_key: str | None = Header(default=None)):
+    expected = os.getenv("API_ACCESS_KEY")
+    if not expected or x_api_key != expected:
+        raise HTTPException(status_code=401, detail="Unauthorized")
 
 class ChatMessage(BaseModel):
     role: str
@@ -39,7 +45,7 @@ def health():
     return {"status": "ok"}
 
 @app.post("/chat")
-async def chat(req: ChatRequest):
+async def chat(req: ChatRequest, _=Depends(verify_key)):
     messages = [m.model_dump() for m in req.messages]
     try:
         text = await llm_chat(messages, system=req.system, temperature=req.temperature)
@@ -48,7 +54,7 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/jobs/create")
-async def create_job(req: JobCreateRequest):
+async def create_job(req: JobCreateRequest, _=Depends(verify_key)):
     try:
         job_id = await add_oneoff_job(req.task, req.payload)
         return {"job_id": job_id}
@@ -56,11 +62,11 @@ async def create_job(req: JobCreateRequest):
         raise HTTPException(status_code=400, detail=str(ve))
 
 @app.get("/jobs")
-async def jobs():
+async def jobs(_=Depends(verify_key)):
     return list_jobs()
 
 @app.get("/jobs/{job_id}")
-async def job(job_id: str):
+async def job(job_id: str, _=Depends(verify_key)):
     j = get_job(job_id)
     if not j:
         raise HTTPException(status_code=404, detail="job not found")
