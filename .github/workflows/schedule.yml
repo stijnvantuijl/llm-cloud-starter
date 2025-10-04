@@ -1,0 +1,16 @@
+name: Ping scheduled task
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # every hour
+  workflow_dispatch:
+
+jobs:
+  call_task_endpoint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Hit scheduled task
+        run: |
+          curl -sS -X POST "$API_URL/jobs/create"             -H "Content-Type: application/json"             -d '{"task":"summarize","payload":{"text":"Hourly heartbeat task. Keep alive."}}' || true
+        env:
+          API_URL: ${{ secrets.LLM_STARTER_API_URL }}
