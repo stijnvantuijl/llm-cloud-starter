@@ -1,0 +1,266 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>LLM Control Panel</title>
+  <style>
+    :root { --bg:#f7f7fb; --card:#fff; --ink:#111; --muted:#6b7280; --pri:#4f46e5; --ok:#059669; --warn:#b45309; }
+    *{box-sizing:border-box} body{margin:0;font:14px/1.45 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;color:var(--ink);background:var(--bg)}
+    .wrap{max-width:1050px;margin:0 auto;padding:24px}
+    .row{display:grid;gap:16px}
+    @media (min-width: 900px){ .row-3{grid-template-columns:1.2fr 1fr auto} .row-2{grid-template-columns:1fr 1fr} }
+    .card{background:var(--card);border:1px solid #e5e7eb;border-radius:16px;padding:16px 16px}
+    h1{font-size:22px;margin:0 0 6px} .muted{color:var(--muted)}
+    label{display:block;font-weight:600;margin:8px 0 6px}
+    input,textarea{width:100%;padding:10px 12px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font:inherit}
+    textarea{min-height:84px}
+    button{appearance:none;border:0;border-radius:12px;padding:10px 14px;background:var(--pri);color:#fff;font-weight:600;cursor:pointer}
+    button.secondary{background:#111}
+    button.ghost{background:#fff;color:#111;border:1px solid #e5e7eb}
+    .btn-ok{background:var(--ok)} .btn-warn{background:var(--warn)}
+    .flex{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+    .chat{height:320px;overflow:auto;border:1px solid #e5e7eb;border-radius:12px;background:#fff;padding:10px}
+    .bubble{padding:10px;border-radius:12px;border:1px solid #e5e7eb;margin:8px 0;white-space:pre-wrap}
+    .user{background:#eef2ff;border-color:#c7d2fe} .assistant{background:#ecfdf5;border-color:#a7f3d0}
+    .sys{background:#f9fafb}
+    pre{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:8px;overflow:auto}
+    .hr{height:1px;background:#e5e7eb;margin:10px 0}
+    .small{font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="flex" style="justify-content:space-between;align-items:flex-end">
+      <div>
+        <h1>LLM Control Panel</h1>
+        <div class="muted small">Bedien je eigen API: chatten, code committen, jobs starten.</div>
+      </div>
+      <button class="ghost small" id="btnHealth">Health check</button>
+    </header>
+
+    <!-- Settings -->
+    <section class="card">
+      <h2 style="margin:0 0 10px">Instellingen</h2>
+      <div class="row row-3">
+        <div>
+          <label>API Base URL</label>
+          <input id="apiUrl" placeholder="https://llm-cloud-starter.onrender.com" />
+          <div class="small muted">Tip: standaard is dit je huidige host.</div>
+        </div>
+        <div>
+          <label>X-API-Key</label>
+          <input id="apiKey" placeholder="••••••" />
+          <div class="small muted">Wordt lokaal opgeslagen (localStorage), niet gedeeld.</div>
+        </div>
+        <div style="align-self:end">
+          <button id="btnSave" class="secondary">Opslaan</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="row row-2" style="margin-top:16px">
+      <!-- Chat -->
+      <section class="card">
+        <h3 style="margin:0 0 10px">Chat</h3>
+        <div id="chat" class="chat"></div>
+        <div class="flex" style="margin-top:8px">
+          <textarea id="chatInput" placeholder="Typ je bericht…"></textarea>
+          <button id="btnSend">Verstuur</button>
+        </div>
+      </section>
+
+      <!-- Tools -->
+      <section class="card">
+        <h3 style="margin:0 0 10px">Tools</h3>
+        <div class="flex">
+          <button id="btnDigest" class="btn-warn">Start Outlook-digest</button>
+          <button id="btnJobs" class="secondary">Ververs jobs</button>
+        </div>
+        <div class="hr"></div>
+        <div>
+          <h4 style="margin:0 0 6px">Commit bestand naar GitHub</h4>
+          <label>Repo (owner/name)</label>
+          <input id="repo" placeholder="gebruikersnaam/llm-cloud-starter" />
+          <label>Pad (bijv. scripts/hello.py)</label>
+          <input id="path" placeholder="scripts/hello.py" />
+          <label>Commit message</label>
+          <input id="message" placeholder="Add file via API" />
+          <label>Branch</label>
+          <input id="branch" value="main" />
+          <label>Bestandsinhoud</label>
+          <textarea id="content" placeholder="print('Hi!')&#10"></textarea>
+          <div class="flex" style="justify-content:flex-end">
+            <button id="btnCommit" class="btn-ok">Commit</button>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Jobs -->
+    <section class="card" style="margin-top:16px">
+      <h3 style="margin:0 0 10px">Jobs</h3>
+      <div id="jobs" class="small muted">Nog geen data.</div>
+    </section>
+
+    <footer class="small muted" style="text-align:center;margin-top:16px">
+      Sleutels blijven lokaal. Deze pagina is publiek, maar onbruikbaar zonder jouw X-API-Key.
+    </footer>
+  </div>
+
+<script>
+(function(){
+  const $ = (id)=>document.getElementById(id);
+  const state = {
+    apiUrl: '',
+    apiKey: '',
+    messages: [{ role:'system', content:'Je bent kort, duidelijk en behulpzaam. Antwoord in het Nederlands.' }]
+  };
+
+  // Load/save settings
+  function loadSettings(){
+    const url = localStorage.getItem('cp_apiUrl') || window.location.origin;
+    const key = localStorage.getItem('cp_apiKey') || '';
+    state.apiUrl = url.replace(/\/$/, '');
+    state.apiKey = key;
+    $('apiUrl').value = state.apiUrl;
+    $('apiKey').value = state.apiKey;
+    $('repo').value = localStorage.getItem('cp_repo') || '<jouw-github-naam>/llm-cloud-starter';
+    $('path').value = localStorage.getItem('cp_path') || 'scripts/hello.py';
+    $('message').value = localStorage.getItem('cp_message') || 'Add file via API';
+    $('branch').value = localStorage.getItem('cp_branch') || 'main';
+    $('content').value = localStorage.getItem('cp_content') || "print('Hi! Dit bestand is via de API gecommit.')\n";
+    renderChat();
+  }
+  function saveSettings(){
+    state.apiUrl = $('apiUrl').value.trim().replace(/\/$/, '');
+    state.apiKey = $('apiKey').value.trim();
+    localStorage.setItem('cp_apiUrl', state.apiUrl);
+    localStorage.setItem('cp_apiKey', state.apiKey);
+    localStorage.setItem('cp_repo', $('repo').value);
+    localStorage.setItem('cp_path', $('path').value);
+    localStorage.setItem('cp_message', $('message').value);
+    localStorage.setItem('cp_branch', $('branch').value);
+    localStorage.setItem('cp_content', $('content').value);
+    alert('Opgeslagen.');
+  }
+
+  function headers(){
+    if(!state.apiKey) return {'Content-Type':'application/json'};
+    return {'Content-Type':'application/json','X-API-Key': state.apiKey};
+  }
+
+  // Chat UI
+  function renderChat(){
+    const box=$('chat'); box.innerHTML='';
+    state.messages.forEach(m=>{
+      const div=document.createElement('div');
+      div.className='bubble ' + (m.role==='user'?'user': m.role==='assistant'?'assistant':'sys');
+      const who = m.role.toUpperCase();
+      div.innerHTML = '<div class="small muted" style="margin-bottom:4px">'+who+'</div>'+escapeHtml(m.content);
+      box.appendChild(div);
+    });
+    box.scrollTop = box.scrollHeight;
+  }
+  function escapeHtml(s){ return s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  async function sendChat(){
+    const val = $('chatInput').value.trim();
+    if(!val) return;
+    if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
+    state.messages.push({role:'user', content:val});
+    $('chatInput').value='';
+    renderChat();
+    try{
+      const res = await fetch(state.apiUrl + '/chat', {
+        method:'POST', headers: headers(),
+        body: JSON.stringify({ messages: state.messages })
+      });
+      const data = await res.json();
+      const text = data.output || JSON.stringify(data);
+      state.messages.push({role:'assistant', content: text});
+    }catch(e){
+      state.messages.push({role:'assistant', content: '⚠️ Fout bij chat: '+e.message});
+    }
+    renderChat();
+  }
+
+  // Jobs
+  async function listJobs(){
+    if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
+    $('jobs').textContent = 'Laden…';
+    try{
+      const res = await fetch(state.apiUrl + '/jobs', { headers: headers() });
+      const data = await res.json();
+      if(!Array.isArray(data) || data.length===0){ $('jobs').textContent='(geen jobs)'; return; }
+      $('jobs').innerHTML = data.map(j=>{
+        const result = j.result ? '<pre>'+escapeHtml(JSON.stringify(j.result, null, 2))+'</pre>' : '';
+        return `<div style="padding:8px 0;border-bottom:1px solid #e5e7eb">
+          <div class="small muted">${j.id}</div>
+          <div><strong>${j.task}</strong> — <span class="small muted">${j.status}</span></div>
+          ${result}
+        </div>`;
+      }).join('');
+    }catch(e){
+      $('jobs').textContent = 'Fout: '+e.message;
+    }
+  }
+
+  async function triggerDigest(){
+    if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
+    if(!confirm('Dagelijks overzicht nu ophalen (digest_outlook) en evt. mailen?')) return;
+    try{
+      const res = await fetch(state.apiUrl + '/jobs/create', {
+        method:'POST', headers: headers(),
+        body: JSON.stringify({ task:'digest_outlook', payload:{ top:50, send_email:true } })
+      });
+      const data = await res.json();
+      alert('Job gestart: ' + (data.job_id || JSON.stringify(data)));
+      listJobs();
+    }catch(e){ alert('Fout: '+e.message); }
+  }
+
+  async function commitFile(){
+    if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
+    const repo = $('repo').value.trim();
+    const path = $('path').value.trim();
+    const message = $('message').value.trim();
+    const branch = $('branch').value.trim();
+    const content = $('content').value;
+    if(!repo || !path){ alert('Repo en pad zijn verplicht.'); return; }
+    try{
+      const res = await fetch(state.apiUrl + '/jobs/create', {
+        method:'POST', headers: headers(),
+        body: JSON.stringify({ task:'commit_file', payload:{ repo, path, message, branch, content } })
+      });
+      const data = await res.json();
+      alert('Job gestart: ' + (data.job_id || JSON.stringify(data)));
+      listJobs();
+    }catch(e){ alert('Fout: '+e.message); }
+  }
+
+  // Health
+  async function health(){
+    const base = $('apiUrl').value.trim().replace(/\/$/,'') || window.location.origin;
+    try{
+      const res = await fetch(base + '/health');
+      const ok = await res.text();
+      alert('Health: ' + ok);
+    }catch(e){
+      alert('Health check faalde: '+e.message);
+    }
+  }
+
+  // Wire events
+  $('btnSave').onclick = saveSettings;
+  $('btnSend').onclick = sendChat;
+  $('btnJobs').onclick = listJobs;
+  $('btnDigest').onclick = triggerDigest;
+  $('btnCommit').onclick = commitFile;
+  $('btnHealth').onclick = health;
+
+  loadSettings();
+})();
+</script>
+</body>
+</html>

@@ -2,12 +2,24 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 import os
 
 from .llm_client import chat as llm_chat
 from .scheduler import scheduler, add_oneoff_job, list_jobs, get_job
 
 app = FastAPI(title="LLM Cloud Starter", version="0.1.0")
+
+# Serve a simple control panel at /ui/control.html
+STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
+os.makedirs(STATIC_DIR, exist_ok=True)
+app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    return '<meta charset="utf-8"><a href="/ui/control.html">Open LLM Control Panel</a>'
+
 
 app.add_middleware(
     CORSMiddleware,
