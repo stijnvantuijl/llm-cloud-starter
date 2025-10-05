@@ -1,7 +1,10 @@
 name: self-test
+
 on:
   schedule:
-    - cron: "0 5 * * *"   # 05:00 UTC; pas aan (17:00 UTC ≈ 19:00 NL in winter)
+    # Dagelijks 18:00 NL-tijd ≈ 16:00 UTC in de zomertijd
+    # LET OP: GitHub gebruikt UTC; in de winter is NL-tijd UTC+1.
+    - cron: "0 16 * * *"
   workflow_dispatch:
 
 jobs:
