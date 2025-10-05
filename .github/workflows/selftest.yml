@@ -1,0 +1,22 @@
+name: self-test
+on:
+  schedule:
+    - cron: "0 5 * * *"   # 05:00 UTC; pas aan (17:00 UTC ≈ 19:00 NL in winter)
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health
+        run: curl -sS "$API_URL/healthz"
+        env:
+          API_URL: ${{ secrets.LLM_STARTER_API_URL }}
+
+      - name: Real self-test
+        run: |
+          curl -sS -X GET "$API_URL/self-test" \
+            -H "X-API-Key: $API_ACCESS_KEY"
+        env:
+          API_URL: ${{ secrets.LLM_STARTER_API_URL }}
+          API_ACCESS_KEY: ${{ secrets.API_ACCESS_KEY }}
