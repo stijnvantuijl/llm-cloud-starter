@@ -117,7 +117,6 @@
     messages: [{ role:'system', content:'Je bent kort, duidelijk en behulpzaam. Antwoord in het Nederlands.' }]
   };
 
-  // Load/save settings
   function loadSettings(){
     const url = localStorage.getItem('cp_apiUrl') || window.location.origin;
     const key = localStorage.getItem('cp_apiKey') || '';
@@ -144,13 +143,10 @@
     localStorage.setItem('cp_content', $('content').value);
     alert('Opgeslagen.');
   }
-
   function headers(){
     if(!state.apiKey) return {'Content-Type':'application/json'};
     return {'Content-Type':'application/json','X-API-Key': state.apiKey};
   }
-
-  // Chat UI
   function renderChat(){
     const box=$('chat'); box.innerHTML='';
     state.messages.forEach(m=>{
@@ -185,7 +181,6 @@
     renderChat();
   }
 
-  // Jobs
   async function listJobs(){
     if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
     $('jobs').textContent = 'Laden…';
@@ -239,7 +234,6 @@
     }catch(e){ alert('Fout: '+e.message); }
   }
 
-  // Health
   async function health(){
     const base = $('apiUrl').value.trim().replace(/\/$/,'') || window.location.origin;
     try{
@@ -251,7 +245,6 @@
     }
   }
 
-  // Wire events
   $('btnSave').onclick = saveSettings;
   $('btnSend').onclick = sendChat;
   $('btnJobs').onclick = listJobs;
