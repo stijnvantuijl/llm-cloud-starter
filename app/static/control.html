@@ -77,7 +77,36 @@
           <button id="btnDigest" class="btn-warn">Start Outlook-digest</button>
           <button id="btnJobs" class="secondary">Ververs jobs</button>
         </div>
+
         <div class="hr"></div>
+
+        <div>
+          <h4 style="margin:0 0 6px">Builder (natuurlijk taal → bestanden → commits)</h4>
+          <label>Doel / Beschrijving</label>
+          <textarea id="builderGoal" placeholder="Bijv: Maak een Python script dat CSV 'data/sales.csv' inleest, omzet naar JSON en bewaart in 'out/sales.json'. Voeg README toe met instructies."></textarea>
+          <div class="row row-3">
+            <div>
+              <label>Repo (owner/name)</label>
+              <input id="builderRepo" placeholder="gebruikersnaam/llm-cloud-starter" />
+            </div>
+            <div>
+              <label>Prefix (map, optioneel)</label>
+              <input id="builderPrefix" placeholder="scripts/tools/" />
+            </div>
+            <div>
+              <label>Branch</label>
+              <input id="builderBranch" value="main" />
+            </div>
+          </div>
+          <label>Commit message (optioneel)</label>
+          <input id="builderMessage" placeholder="Scaffold via builder" />
+          <div class="flex" style="justify-content:flex-end;margin-top:8px">
+            <button id="btnBuild" class="btn-ok">Bouwen & committen</button>
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
         <div>
           <h4 style="margin:0 0 6px">Commit bestand naar GitHub</h4>
           <label>Repo (owner/name)</label>
@@ -124,11 +153,18 @@
     state.apiKey = key;
     $('apiUrl').value = state.apiUrl;
     $('apiKey').value = state.apiKey;
+
     $('repo').value = localStorage.getItem('cp_repo') || '<jouw-github-naam>/llm-cloud-starter';
     $('path').value = localStorage.getItem('cp_path') || 'scripts/hello.py';
     $('message').value = localStorage.getItem('cp_message') || 'Add file via API';
     $('branch').value = localStorage.getItem('cp_branch') || 'main';
     $('content').value = localStorage.getItem('cp_content') || "print('Hi! Dit bestand is via de API gecommit.')\n";
+
+    $('builderRepo').value   = localStorage.getItem('cp_b_repo')   || '<jouw-github-naam>/llm-cloud-starter';
+    $('builderPrefix').value = localStorage.getItem('cp_b_prefix') || 'scripts/tools/';
+    $('builderBranch').value = localStorage.getItem('cp_b_branch') || 'main';
+    $('builderMessage').value= localStorage.getItem('cp_b_msg')    || 'Scaffold via builder';
+
     renderChat();
   }
   function saveSettings(){
@@ -136,11 +172,18 @@
     state.apiKey = $('apiKey').value.trim();
     localStorage.setItem('cp_apiUrl', state.apiUrl);
     localStorage.setItem('cp_apiKey', state.apiKey);
+
     localStorage.setItem('cp_repo', $('repo').value);
     localStorage.setItem('cp_path', $('path').value);
     localStorage.setItem('cp_message', $('message').value);
     localStorage.setItem('cp_branch', $('branch').value);
     localStorage.setItem('cp_content', $('content').value);
+
+    localStorage.setItem('cp_b_repo', $('builderRepo').value);
+    localStorage.setItem('cp_b_prefix', $('builderPrefix').value);
+    localStorage.setItem('cp_b_branch', $('builderBranch').value);
+    localStorage.setItem('cp_b_msg', $('builderMessage').value);
+
     alert('Opgeslagen.');
   }
   function headers(){
@@ -234,6 +277,28 @@
     }catch(e){ alert('Fout: '+e.message); }
   }
 
+  async function runBuilder(){
+    if(!state.apiUrl || !state.apiKey){ alert('Vul eerst API URL en X-API-Key in.'); return; }
+    const goal   = $('builderGoal').value.trim();
+    const repo   = $('builderRepo').value.trim();
+    const prefix = $('builderPrefix').value.trim();
+    const branch = $('builderBranch').value.trim();
+    const msg    = $('builderMessage').value.trim();
+    if(!goal || !repo){ alert('Doel en repo zijn verplicht.'); return; }
+    try{
+      const res = await fetch(state.apiUrl + '/jobs/create', {
+        method:'POST', headers: headers(),
+        body: JSON.stringify({
+          task:'build_from_spec',
+          payload:{ goal, repo, prefix, branch, message: msg, max_files: 10 }
+        })
+      });
+      const data = await res.json();
+      alert('Builder job gestart: ' + (data.job_id || JSON.stringify(data)));
+      listJobs();
+    }catch(e){ alert('Fout: '+e.message); }
+  }
+
   async function health(){
     const base = $('apiUrl').value.trim().replace(/\/$/,'') || window.location.origin;
     try{
@@ -250,6 +315,7 @@
   $('btnJobs').onclick = listJobs;
   $('btnDigest').onclick = triggerDigest;
   $('btnCommit').onclick = commitFile;
+  $('btnBuild').onclick = runBuilder;
   $('btnHealth').onclick = health;
 
   loadSettings();
