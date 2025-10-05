@@ -16,9 +16,12 @@ STATIC_DIR = os.path.join(os.path.dirname(__file__), "static")
 os.makedirs(STATIC_DIR, exist_ok=True)
 app.mount("/ui", StaticFiles(directory=STATIC_DIR, html=True), name="ui")
 
-@app.get("/", response_class=HTMLResponse)
+from fastapi.responses import RedirectResponse
+
+@app.get("/")
 def root():
-    return '<meta charset="utf-8"><a href="/ui/control.html">Open LLM Control Panel</a>'
+    # Stuur direct door naar het control panel
+    return RedirectResponse(url="/ui/control.html")
 
 
 app.add_middleware(
