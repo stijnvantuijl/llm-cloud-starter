@@ -127,3 +127,7 @@ class _Scheduler:
         log.info("[jobs] scheduler started")
 
 scheduler = _Scheduler()
+def reset():
+    with _LOCK:
+        _JOBS.clear()
+        _QUEUE.clear()

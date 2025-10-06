@@ -148,7 +148,8 @@ async def chat(req: ChatRequest, _=Depends(verify_key)):
 @app.post("/jobs/create")
 async def create_job(req: JobCreateRequest, _=Depends(verify_key)):
     try:
-        job_id = await add_oneoff_job(req.task, req.payload)
+from anyio import to_thread
+job_id = await to_thread.run_sync(add_oneoff_job, req.task, req.payload)
         return {"job_id": job_id}
     except ValueError as ve:
         raise HTTPException(status_code=400, detail=str(ve))
@@ -163,3 +164,4 @@ async def job(job_id: str, _=Depends(verify_key)):
     if not j:
         raise HTTPException(status_code=404, detail="job not found")
     return j
+
