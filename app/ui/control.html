@@ -1,330 +1,205 @@
 <!doctype html>
 <html lang="nl">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LLM Control Panel</title>
-  <style>
-    :root{
-      --bg:#0b1020; --panel:#111735; --card:#121a3a; --line:#1f2a56;
-      --txt:#e9edf7; --muted:#aab7ff; --accent:#2d47ff; --ok:#22c55e; --err:#ef4444;
-    }
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--txt);font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif}
-    header{position:sticky;top:0;background:var(--panel);padding:14px 16px;border-bottom:1px solid var(--line);z-index:10}
-    h1{margin:0;font-size:18px}
-    main{padding:16px;display:grid;gap:16px;max-width:1100px;margin:auto}
-    .grid{display:grid;gap:16px}
-    .cols-2{grid-template-columns:1.1fr .9fr}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
-    label{display:block;font-size:12px;color:var(--muted);margin:8px 0 6px}
-    input,textarea,select{
-      width:100%;background:#0e1530;color:var(--txt);border:1px solid var(--line);
-      border-radius:10px;padding:10px 12px;font:inherit
-    }
-    textarea{min-height:160px;resize:vertical}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    button{
-      background:var(--accent);color:#fff;border:none;border-radius:10px;
-      padding:10px 14px;cursor:pointer;font-weight:600
-    }
-    button.secondary{background:#0e1530;color:#c9d6ff;border:1px solid var(--line)}
-    .pill{display:inline-block;padding:6px 10px;border:1px solid var(--line);border-radius:999px;
-      color:var(--muted);text-decoration:none;background:#0e1530;margin-right:8px}
-    .muted{color:var(--muted)}
-    .ok{color:var(--ok)}
-    .err{color:var(--err)}
-    pre{white-space:pre-wrap;background:#0e1530;border:1px solid var(--line);padding:8px;border-radius:8px;max-height:300px;overflow:auto}
-    .list{border:1px solid var(--line);border-radius:8px;overflow:hidden}
-    .list-item{padding:8px 10px;border-bottom:1px solid var(--line);cursor:pointer}
-    .list-item:hover{background:#0e1530}
-    .list-item:last-child{border-bottom:0}
-    small.code{font-family:ui-monospace,Menlo,Consolas,monospace;color:#c9d6ff}
-  </style>
-</head>
-<body>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LLM Control Panel</title>
+<style>
+  :root { color-scheme: dark; }
+  body{font-family:system-ui,Segoe UI,Arial,sans-serif;background:#0b1020;color:#e9edf7;margin:0}
+  header{padding:14px 16px;background:#111735;position:sticky;top:0;border-bottom:1px solid #1f2a56}
+  h1{margin:0;font-size:18px}
+  main{padding:16px;max-width:1200px;margin:auto}
+  .grid{display:grid;gap:16px}
+  @media(min-width:960px){ .grid{grid-template-columns:1.1fr .9fr} }
+  .card{background:#121a3a;border:1px solid #1f2a56;border-radius:12px;padding:12px}
+  label{font-size:12px;color:#aab7ff;display:block;margin:8px 0 4px}
+  input,textarea,select{width:100%;box-sizing:border-box;background:#0e1530;color:#e9edf7;border:1px solid #223069;border-radius:10px;padding:10px 12px}
+  textarea{min-height:160px;resize:vertical}
+  button{background:#2d47ff;color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+  button.secondary{background:#0e1530;border:1px solid #223069;color:#c9d6ff}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px}
+  pre{white-space:pre-wrap;word-break:break-word;background:#0e1530;border:1px solid #223069;border-radius:10px;padding:10px 12px;max-height:320px;overflow:auto}
+  .muted{color:#9fb0ff;font-size:12px}
+</style>
 <header>
-  <a class="pill" href="/ui/assistant.html">💬 Assistant</a>
-  <a class="pill" href="/ui/bekendmakingen.html">⚙️ Bekendmakingen</a>
   <h1>LLM Control Panel</h1>
 </header>
-
-<main>
-  <!-- Instellingen -->
+<main class="grid">
   <section class="card">
     <h3>Instellingen</h3>
-    <div class="grid cols-2">
-      <div>
-        <label>API Base URL</label>
-        <input id="baseUrl" placeholder="https://llm-cloud-starter.onrender.com" />
-      </div>
-      <div>
-        <label>X-API-Key</label>
-        <input id="apiKey" placeholder="plak hier je key…" />
-      </div>
+    <label>API Base URL</label>
+    <input id="baseUrl" placeholder="https://llm-cloud-starter.onrender.com" />
+    <label>X-API-Key</label>
+    <input id="apiKey" placeholder="plak je key hier" />
+    <div class="row">
+      <button id="saveBtn" type="button">Opslaan</button>
+      <button id="healthBtn" class="secondary" type="button">Health check</button>
+      <span id="saveOut" class="muted"></span>
     </div>
-    <div class="row" style="margin-top:8px">
-      <button id="saveBtn">Opslaan</button>
-      <button id="healthBtn" class="secondary">Health check</button>
-      <span id="sysMsg" class="muted"></span>
-    </div>
+    <pre id="healthOut" class="muted"></pre>
   </section>
 
-  <div class="grid cols-2">
-    <!-- Job composer -->
-    <section class="card">
-      <h3>Job composer <small class="muted">(POST <span class="code">/jobs/create</span>)</small></h3>
-      <label>Templates</label>
-      <div class="row">
-        <select id="tplSelect">
-          <option value="">— kies template —</option>
-          <option value="weekly">weekly_bekendmakingen (dry run)</option>
-          <option value="commit">commit_file (voorbeeldcommit)</option>
-          <option value="build">build_from_spec (mini-spec)</option>
-        </select>
-        <button id="setTplBtn" class="secondary">Zet in editor</button>
-        <button id="clearBtn" class="secondary">Leeg</button>
-      </div>
-      <label>JSON payload</label>
-      <textarea id="payloadTxt" spellcheck="false" placeholder='{"task":"…","payload":{…}}'></textarea>
-      <div class="row" style="margin-top:8px">
-        <button id="sendBtn">Verstuur job</button>
-        <button id="selftestBtn" class="secondary">Selftest (build_from_spec)</button>
-        <span id="sendMsg" class="muted"></span>
-      </div>
-      <label>Resultaat</label>
-      <pre id="resultOut">-</pre>
-    </section>
-
-    <!-- Jobs -->
-    <section class="card">
-      <h3>Jobs</h3>
-      <div class="row" style="margin-bottom:8px">
-        <button id="refreshJobs" class="secondary">Ververs jobs</button>
-        <span class="muted">Na “Verstuur job” wordt automatisch gepolld.</span>
-      </div>
-      <div id="jobsList" class="list" aria-live="polite"></div>
-
-      <div style="margin-top:12px">
-        <label>Job detail</label>
-        <pre id="jobDetail">-</pre>
-      </div>
-    </section>
-  </div>
-
-  <!-- Tips -->
   <section class="card">
-    <h3>Tips</h3>
-    <ul>
-      <li>
-        <span class="code">/jobs/create</span> verwacht een JSON-object: 
-        <small class="code">{"task":"…","payload":{…}}</small>.
-      </li>
-      <li>API-key en Base URL worden lokaal bewaard (localStorage).</li>
-      <li>Gebruik <em>Selftest</em> om te zien welke taken beschikbaar zijn (en of <span class="code">build_from_spec</span> aanwezig is).</li>
-    </ul>
+    <h3>Jobs</h3>
+    <div class="row">
+      <button id="refreshJobsBtn" class="secondary" type="button">Ververs jobs</button>
+    </div>
+    <pre id="jobsOut">-</pre>
+  </section>
+
+  <section class="card">
+    <h3>Job composer (/jobs/create)</h3>
+    <label>Template</label>
+    <select id="tpl">
+      <option value="">— kies template —</option>
+      <option value='{"task":"weekly_bekendmakingen","payload":{"dry_run":true}}'>
+        weekly_bekendmakingen (dry_run)
+      </option>
+      <option value='{"task":"commit_file","payload":{"repo":"<owner>/<repo>","branch":"main","path":"tmp/test_api.txt","message":"Test commit via API","content":"Hallo! Dit bestand is gecommit via de API."}}'>
+        commit_file (voorbeeld)
+      </option>
+    </select>
+    <label>JSON payload</label>
+    <textarea id="payloadTxt" spellcheck="false">{ "task":"weekly_bekendmakingen", "payload": { "dry_run": true } }</textarea>
+    <div class="row">
+      <button id="sendBtn" type="button">Verstuur job</button>
+      <button id="clearBtn" class="secondary" type="button">Leeg</button>
+      <span id="sendOut" class="muted"></span>
+    </div>
+    <pre id="resultOut">-</pre>
+    <p class="muted">Tip: payload moet geldige JSON zijn, bijv. <code>{"task":"…","payload":{…}}</code>.</p>
+  </section>
+
+  <section class="card">
+    <h3>Selftest (beschikbare taken)</h3>
+    <div class="row">
+      <button id="selftestBtn" class="secondary" type="button">Selftest</button>
+    </div>
+    <pre id="selftestOut">-</pre>
   </section>
 </main>
 
 <script>
-  // ---------- Helpers ----------
-  const $ = s => document.querySelector(s);
-  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  // Helpers
+  const $ = (s) => document.querySelector(s);
+  const out = (el, v) => { el.textContent = (typeof v === 'string') ? v : JSON.stringify(v, null, 2); };
 
-  function lsGet(k, fallback=""){ try { return localStorage.getItem(k) || fallback; } catch { return fallback; } }
-  function lsSet(k, v){ try { localStorage.setItem(k, v); } catch {} }
+  // Load stored settings
+  const baseUrlInput = $('#baseUrl');
+  const apiKeyInput  = $('#apiKey');
+  baseUrlInput.value = localStorage.getItem('baseUrl') || location.origin.replace(/\/ui.*/,'');
+  apiKeyInput.value  = localStorage.getItem('x_api_key') || '';
 
-  function getBase(){ return $('#baseUrl').value.trim() || location.origin.replace(/\\/ui.*/,''); }
-  function getKey(){ return $('#apiKey').value.trim(); }
+  // Template → textarea
+  $('#tpl').addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    $('#payloadTxt').value = e.target.value;
+  });
 
-  async function api(path, body){
-    const res = await fetch(getBase() + path, {
-      method: 'POST',
-      headers: {'Content-Type':'application/json','X-API-Key': getKey()},
-      body: JSON.stringify(body||{})
-    });
-    if(!res.ok){
-      const txt = await res.text();
-      throw new Error(txt || res.status + ' ' + res.statusText);
-    }
-    return res.json();
-  }
-  async function get(path){
-    const res = await fetch(getBase() + path, {
-      headers: {'X-API-Key': getKey()}
-    });
-    if(!res.ok){
-      const txt = await res.text();
-      throw new Error(txt || res.status + ' ' + res.statusText);
-    }
-    return res.json();
-  }
+  // Save settings
+  $('#saveBtn').addEventListener('click', () => {
+    localStorage.setItem('baseUrl', baseUrlInput.value.trim());
+    localStorage.setItem('x_api_key', apiKeyInput.value.trim());
+    out($('#saveOut'), 'Opgeslagen');
+    setTimeout(() => out($('#saveOut'), ''), 1500);
+  });
 
-  function setMsg(el, msg, ok){
-    el.textContent = msg;
-    el.classList.remove('ok','err');
-    if(ok===true) el.classList.add('ok');
-    else if(ok===false) el.classList.add('err');
-  }
+  // Clear composer
+  $('#clearBtn').addEventListener('click', () => {
+    $('#payloadTxt').value = '';
+    out($('#resultOut'), '-');
+    out($('#sendOut'), '');
+  });
 
-  // ---------- Init ----------
-  function loadSettings(){
-    $('#baseUrl').value = lsGet('baseUrl', location.origin.replace(/\\/ui.*/,''));
-    $('#apiKey').value  = lsGet('x_api_key','');
-  }
-  function saveSettings(){
-    lsSet('baseUrl', $('#baseUrl').value.trim());
-    lsSet('x_api_key', $('#apiKey').value.trim());
-    setMsg($('#sysMsg'),'Opgeslagen.', true);
-    setTimeout(()=> setMsg($('#sysMsg'),'') ,1500);
-  }
-
-  // ---------- Health ----------
-  async function doHealth(){
-    setMsg($('#sysMsg'),'Controleren…');
+  // Health
+  $('#healthBtn').addEventListener('click', async () => {
+    out($('#healthOut'), '⌛…');
     try{
-      const r = await get('/health');
-      setMsg($('#sysMsg'),'OK (' + JSON.stringify(r) + ')', true);
-    }catch(e){
-      setMsg($('#sysMsg'),'Fout: ' + e.message, false);
-    }
-  }
-
-  // ---------- Templates ----------
-  function tplWeekly(){
-    return JSON.stringify({
-      task: "weekly_bekendmakingen",
-      payload: { dry_run: true }
-    }, null, 2);
-  }
-  function tplCommit(){
-    return JSON.stringify({
-      task: "commit_file",
-      payload: {
-        repo: lsGet('repo') || "stijnvantuijl/llm-cloud-starter",
-        branch: lsGet('branch') || "main",
-        path: "tmp/test_api.txt",
-        message: "Test commit via API",
-        content: "Hallo! Dit bestand is via de API gecommit. 🚀\n"
-      }
-    }, null, 2);
-  }
-  function tplBuild(){
-    return JSON.stringify({
-      task: "build_from_spec",
-      payload: {
-        spec: {
-          summary: "Bekendmakingen v1 UI + config",
-          commit_message: "scaffold bekendmakingen ui+config+readme",
-          files: [
-            {
-              path: "apps/bekendmakingen/configs/bekendmakingen.json",
-              content: JSON.stringify({
-                municipalities: [],
-                keywords: ["Didam arrest","anterieure overeenkomst","grondverkoop","omgevingsvisie"],
-                routes: [{ emails: [] }]
-              }, null, 2) + "\n"
-            }
-          ]
-        }
-      }
-    }, null, 2);
-  }
-
-  $('#setTplBtn').onclick = () => {
-    const v = $('#tplSelect').value;
-    if(!v) return;
-    if(v==='weekly') $('#payloadTxt').value = tplWeekly();
-    if(v==='commit') $('#payloadTxt').value = tplCommit();
-    if(v==='build')  $('#payloadTxt').value = tplBuild();
-  };
-  $('#clearBtn').onclick = () => { $('#payloadTxt').value = ''; $('#resultOut').textContent='-'; };
-
-  // ---------- Jobs ----------
-  let pollTimer = null;
-
-  async function refreshJobs(){
-    try{
-      const jobs = await get('/jobs');
-      const listEl = $('#jobsList');
-      listEl.innerHTML = '';
-      const ids = Object.keys(jobs || {});
-      if(ids.length===0){
-        listEl.innerHTML = '<div class="list-item muted">Geen jobs</div>';
-        return;
-      }
-      ids.forEach(id=>{
-        const item = document.createElement('div');
-        item.className = 'list-item';
-        item.textContent = `${id} — ${jobs[id].task || '?' } — ${jobs[id].status || '?'}`;
-        item.onclick = ()=> showJob(id);
-        listEl.appendChild(item);
+      const r = await fetch((localStorage.getItem('baseUrl')||'') + '/health', {
+        headers: { 'X-API-Key': localStorage.getItem('x_api_key') || '' }
       });
+      const j = await r.json();
+      out($('#healthOut'), j);
     }catch(e){
-      $('#jobsList').innerHTML = `<div class="list-item err">Fout: ${e.message}</div>`;
+      out($('#healthOut'), 'Fout: ' + e.message);
     }
-  }
+  });
 
-  async function showJob(id){
-    $('#jobDetail').textContent = 'Laden…';
-    try{
-      const d = await get('/jobs/' + id);
-      $('#jobDetail').textContent = JSON.stringify(d, null, 2);
-    }catch(e){
-      $('#jobDetail').textContent = 'Fout: ' + e.message;
+  // Send job
+  $('#sendBtn').addEventListener('click', async () => {
+    const BASE = (localStorage.getItem('baseUrl')||'').trim();
+    const KEY  = (localStorage.getItem('x_api_key')||'').trim();
+    const txt  = $('#payloadTxt').value.trim();
+    out($('#sendOut'), '');
+    out($('#resultOut'), '⌛ versturen…');
+
+    if (!BASE || !KEY) {
+      out($('#resultOut'), 'Fout: Base URL of API-key ontbreekt. Klik eerst Opslaan.');
+      return;
     }
-  }
+    let payload;
+    try { payload = JSON.parse(txt); }
+    catch(e){ out($('#resultOut'), 'JSON fout: ' + e.message); return; }
 
-  async function sendJob(){
-    setMsg($('#sendMsg'),'Versturen…');
-    $('#resultOut').textContent = '-';
     try{
-      let payload;
-      try{
-        payload = JSON.parse($('#payloadTxt').value || '{}');
-      }catch(e){
-        throw new Error('JSON parse error: ' + e.message);
+      const res = await fetch(BASE + '/jobs/create', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-API-Key': KEY},
+        body: JSON.stringify(payload)
+      });
+      const j = await res.json().catch(()=> ({}));
+      out($('#resultOut'), j);
+      if (j.job_id) {
+        out($('#sendOut'), 'Job gestart: ' + j.job_id + ' (polling…)');
+        // poll until done/failed
+        const poll = async () => {
+          const r = await fetch(BASE + '/jobs/' + j.job_id, { headers: { 'X-API-Key': KEY } });
+          const d = await r.json();
+          out($('#resultOut'), d);
+          if (d.status === 'running') setTimeout(poll, 1200);
+          else out($('#sendOut'), 'Klaar: ' + d.status);
+        };
+        poll();
+      } else if (j.detail) {
+        out($('#sendOut'), 'Server detail: ' + j.detail);
+      } else {
+        out($('#sendOut'), 'Verstuurd');
       }
-      if(!payload || !payload.task) throw new Error('Payload moet een "task" bevatten.');
-
-      const j = await api('/jobs/create', payload);
-      $('#resultOut').textContent = JSON.stringify(j, null, 2);
-      setMsg($('#sendMsg'),'Job aangemaakt', true);
-
-      // Poll de job tot einde
-      if(j.job_id){
-        clearInterval(pollTimer);
-        pollTimer = setInterval(refreshJobs, 1500);
-      }
-      await refreshJobs();
     }catch(e){
-      setMsg($('#sendMsg'),'Fout: ' + e.message, false);
-      $('#resultOut').textContent = e.message;
+      out($('#resultOut'), 'Fout: ' + e.message);
     }
-  }
+  });
 
-  async function selftest(){
-    $('#resultOut').textContent = 'Selftest bezig…';
+  // List jobs (latest first)
+  $('#refreshJobsBtn').addEventListener('click', async () => {
+    const BASE = localStorage.getItem('baseUrl')||'';
+    const KEY  = localStorage.getItem('x_api_key')||'';
+    out($('#jobsOut'), '⌛…');
     try{
-      const r = await get('/health'); // laat o.a. taken zien in sommige implementaties
-      $('#resultOut').textContent = JSON.stringify(r, null, 2);
+      const r = await fetch(BASE + '/jobs', { headers: { 'X-API-Key': KEY } });
+      const j = await r.json();
+      // toon als lijst van {id,status,task,created_at}
+      const items = Object.entries(j || {}).map(([id, o]) => ({
+        id, status: o.status, task: o.task, created_at: o.created_at
+      }));
+      out($('#jobsOut'), items.length ? items : '— geen jobs gevonden —');
     }catch(e){
-      $('#resultOut').textContent = 'Fout: ' + e.message;
+      out($('#jobsOut'), 'Fout: ' + e.message);
     }
-  }
+  });
 
-  // ---------- Wire up ----------
-  $('#saveBtn').onclick = saveSettings;
-  $('#healthBtn').onclick = doHealth;
-  $('#sendBtn').onclick = sendJob;
-  $('#selftestBtn').onclick = selftest;
-  $('#refreshJobs').onclick = refreshJobs;
-
-  // Init load
-  loadSettings();
-  refreshJobs();
-  // eerste keer: toon weekly template zodat het "direct werkt"
-  if(!$('#payloadTxt').value) $('#payloadTxt').value = tplWeekly();
+  // Selftest (welke taken zijn er)
+  $('#selftestBtn').addEventListener('click', async () => {
+    const BASE = localStorage.getItem('baseUrl')||'';
+    const KEY  = localStorage.getItem('x_api_key')||'';
+    out($('#selftestOut'), '⌛…');
+    try{
+      const r = await fetch(BASE + '/health', { headers: { 'X-API-Key': KEY } });
+      const j = await r.json();
+      out($('#selftestOut'), j);
+    }catch(e){
+      out($('#selftestOut'), 'Fout: ' + e.message);
+    }
+  });
 </script>
-</body>
 </html>
