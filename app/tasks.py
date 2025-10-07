@@ -251,4 +251,22 @@ except NameError:
 TASKS.update({
     "weekly_bekendmakingen": task_weekly_bekendmakingen
 })
+# --- weekly_bekendmakingen taak registreren (rooktest) ---
+from .bekendmakingen_job import run_weekly_digest
+
+async def task_weekly_bekendmakingen(payload: dict) -> dict:
+    payload = payload or {}
+    return await run_weekly_digest(
+        config_path=payload.get("config_path", "apps/bekendmakingen/configs/bekendmakingen.json"),
+        dry_run=bool(payload.get("dry_run", True)),
+        days=int(payload.get("days", 7)),
+    )
+
+try:
+    TASKS
+except NameError:
+    TASKS = {}
+TASKS.update({
+    "weekly_bekendmakingen": task_weekly_bekendmakingen
+})
 
