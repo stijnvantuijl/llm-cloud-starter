@@ -1,0 +1,1 @@
+## Bekendmakingen module (scaffold)\n\n- Config: `configs/bekendmakingen.json`\n- UI: `app/static/bekendmakingen.html`\n- Job: `app/bekendmakingen/job.py` (placeholder)\n
