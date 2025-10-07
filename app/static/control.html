@@ -3,406 +3,355 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LLM Control Panel</title>
+  <title>Command Center (Natuurlijk Taal)</title>
   <style>
-    :root{
-      --bg:#0d1117; --panel:#161b22; --muted:#8b949e; --text:#c9d1d9;
-      --ok:#2ea043; --warn:#d29922; --err:#f85149; --line:#30363d;
-      --btn:#238636; --btn2:#30363d; --pill:#1f6feb;
-      --mono: ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#0b1020; color:#e9edf7; }
+    header { display:flex; gap:12px; padding:16px; align-items:center; background:#111735; position:sticky; top:0; z-index:10; }
+    header h1 { margin:0; font-size:18px; font-weight:600; }
+    .row { display:flex; gap:16px; padding:16px; flex-wrap:wrap; }
+    .card { background:#121a3a; border:1px solid #1f2a56; border-radius:14px; padding:14px; box-shadow:0 0 0 1px #1a244c inset; }
+    .w30 { flex:1 1 320px; max-width:420px; }
+    .w70 { flex: 1 1 540px; min-width:420px; }
+    label { display:block; font-size:12px; color:#aab7ff; margin-bottom:6px; }
+    input[type="text"], input[type="url"], textarea, select {
+      width:100%; box-sizing:border-box; background:#0e1530; color:#e9edf7; border:1px solid #223069;
+      padding:10px 12px; border-radius:10px; outline:none;
     }
-    *{box-sizing:border-box}
-    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font:16px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue","Noto Sans",sans-serif}
-    a{color:#58a6ff;text-decoration:none} a:hover{text-decoration:underline}
-    .wrap{max-width:1200px;margin:32px auto;padding:0 16px}
-    h1{margin:0 0 16px 0;font-size:26px}
-    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-    @media (max-width:1000px){.grid{grid-template-columns:1fr}}
-    .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px}
-    .card h2{margin:0 0 12px 0;font-size:18px}
-    label{display:block;font-size:12px;color:var(--muted);margin:12px 0 6px}
-    input,textarea,select{width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);background:#0b1320;color:var(--text);font:14px var(--mono)}
-    textarea{min-height:120px;resize:vertical}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .btn{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--line);background:var(--btn2);color:var(--text);padding:10px 14px;border-radius:8px;cursor:pointer}
-    .btn.ok{background:var(--btn);border-color:#2ea043;color:#fff}
-    .btn.warn{background:#3b2e06;border-color:#6e540f}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .mono{font-family:var(--mono)}
-    .help{font-size:12px;color:var(--muted)}
-    .pill{display:inline-block;background:var(--pill);color:#fff;border-radius:999px;padding:2px 8px;font:12px var(--mono)}
-    .hr{border:none;border-top:1px solid var(--line);margin:12px 0}
-    .jobs{display:flex;flex-direction:column;gap:10px}
-    .job{border:1px solid var(--line);border-radius:8px;padding:12px;background:#0b1320}
-    .tag{display:inline-flex;align-items:center;padding:0 8px;border-radius:6px;font:12px var(--mono);height:22px}
-    .tag.ok{background:#052d11;color:#7ee787;border:1px solid #1f6f43}
-    .tag.run{background:#041b31;color:#79c0ff;border:1px solid #0b4a7a}
-    .tag.fail{background:#3c0b0b;color:#ffa198;border:1px solid #6b1616}
-    .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .right{display:flex;gap:12px;align-items:center}
-    .mt8{margin-top:8px}
-    .mt12{margin-top:12px}
-    .mt16{margin-top:16px}
-    .mb8{margin-bottom:8px}
-    .small{font-size:12px}
-    .flex{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .kbd{padding:1px 6px;border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;background:#0b1320;font:12px var(--mono)}
+    textarea { min-height:120px; resize:vertical; }
+    button { background:#2d47ff; color:white; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; }
+    button.secondary { background:#0e1530; border:1px solid #223069; color:#c9d6ff; }
+    .flex { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .pill { background:#0e1530; border:1px solid #223069; color:#aab7ff; border-radius:999px; padding:6px 10px; font-size:12px; }
+    .chat { display:flex; flex-direction:column; gap:10px; }
+    .msg { padding:12px; border-radius:12px; white-space:pre-wrap; }
+    .user { background:#1a254f; border:1px solid #2a3d8c; align-self:flex-end; max-width:80%; }
+    .bot { background:#0f1836; border:1px solid #223069; align-self:flex-start; max-width:90%; }
+    .muted { color:#9fb0ff; font-size:12px; }
+    .mono { font-family: ui-monospace, Menlo, Consolas, monospace; }
+    .hr { height:1px; background:#1f2a56; margin:10px 0; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .small { font-size:12px; }
+    .badge { display:inline-block; padding:2px 8px; border:1px solid #2a3d8c; border-radius:999px; font-size:11px; color:#aab7ff; margin-left:8px;}
+    .btn-inline { margin-left:6px; padding:6px 10px; font-size:12px;}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <h1>LLM Control Panel</h1>
+  <header>
+    <h1>Command Center</h1>
+    <a class="pill" href="/ui/control.html">🔧 Control</a>
+    <a class="pill" href="/ui/assistant.html">💬 Assistant</a>
+  </header>
 
-    <div class="grid">
-      <!-- Linkerkolom -->
-      <div class="col">
-        <!-- Instellingen -->
-        <div class="card">
-          <h2>Instellingen</h2>
-          <label>API Base URL</label>
-          <input id="apiBase" placeholder="https://llm-cloud-starter.onrender.com" />
-          <div class="help">Tip: standaard wordt <span class="mono">window.location.origin</span> gebruikt.</div>
-
-          <label class="mt12">X-API-Key</label>
-          <input id="apiKey" placeholder="plak hier je access key (Render)" />
-          <div class="help">Wordt alleen lokaal opgeslagen (localStorage), niet gedeeld.</div>
-
-          <div class="flex mt12">
-            <button class="btn ok" id="saveBtn">Opslaan</button>
-            <button class="btn" id="healthBtn">Health check</button>
-            <span id="healthOut" class="help"></span>
-          </div>
-        </div>
-
-        <!-- Snelle test -->
-        <div class="card">
-          <h2>Snelle test (job “summarize”)</h2>
-          <label>Tekst</label>
-          <textarea id="quickText" placeholder="Typ wat tekst die samengevat mag worden…"></textarea>
-          <div class="flex mt12">
-            <button class="btn ok" id="quickBtn">Start test</button>
-            <button class="btn" id="jobsBtn">Ververs jobs</button>
-          </div>
-          <pre id="quickOut" class="mt8 small"></pre>
-        </div>
-
-        <!-- Jobs -->
-        <div class="card">
-          <h2>Jobs</h2>
-          <div class="help mb8">Hier verschijnen alle jobs die je start (snelle test, builder, commits, etc.).</div>
-          <div id="jobs" class="jobs"></div>
-        </div>
+  <div class="row">
+    <!-- Instellingen -->
+    <div class="card w30">
+      <h3>Instellingen</h3>
+      <label>API Base URL</label>
+      <input id="baseUrl" type="url" placeholder="https://llm-cloud-starter.onrender.com" />
+      <div style="height:8px"></div>
+      <label>X-API-Key</label>
+      <input id="apiKey" type="text" placeholder="plak hier je access key" />
+      <div style="height:10px"></div>
+      <div class="flex">
+        <button id="saveBtn">Opslaan</button>
+        <button class="secondary" id="healthBtn">Health check</button>
+        <span id="healthOut" class="muted small"></span>
       </div>
-
-      <!-- Rechterkolom -->
-      <div class="col">
-        <!-- Commit bestand -->
-        <div class="card">
-          <h2>Commit bestand naar GitHub</h2>
-
+      <div class="hr"></div>
+      <div class="grid2 small">
+        <div>
           <label>Repo (owner/name)</label>
-          <input id="cRepo" placeholder="stijnvantuijl/llm-cloud-starter" />
-
-          <label>Pad (bijv. <span class="mono">apps/bekendmakingen/example.py</span>)</label>
-          <input id="cPath" placeholder="apps/bekendmakingen/example.py" />
-
-          <label>Commit message</label>
-          <input id="cMsg" value="Add file via API" />
-
-          <label>Branch</label>
-          <input id="cBranch" value="main" />
-
-          <label>Bestandsinhoud</label>
-          <textarea id="cBody" spellcheck="false">print('Hallo! Dit bestand is via de API gecommit.')</textarea>
-
-          <div class="flex mt12">
-            <button class="btn ok" id="commitBtn">Commit</button>
-            <button class="btn" id="commitExample">Voorbeeld vullen</button>
-          </div>
-
-          <div class="hr"></div>
-          <div class="help">
-            Deze actie roept <span class="mono">POST /jobs/create</span> aan met
-            <span class="pill">task: commit_file</span>. De backend voert de commit uit
-            (jouw GitHub token staat daar geconfigureerd).
-          </div>
-          <pre id="commitOut" class="mt8 small"></pre>
+          <input id="repo" type="text" placeholder="stijnvantuijl/llm-cloud-starter" />
         </div>
-
-        <!-- Builder -->
-        <div class="card">
-          <h2>Builder (build_from_spec)</h2>
-
-          <label>Opdracht / doel</label>
-          <textarea id="buildGoal" placeholder="Beschrijf wat de API moet bouwen (bestanden/structuur/README, etc.)."></textarea>
-
-          <div class="row mt8">
-            <div>
-              <label>Repo (owner/name)</label>
-              <input id="buildRepo" placeholder="stijnvantuijl/llm-cloud-starter" />
-            </div>
-            <div>
-              <label>Prefix (map, optioneel)</label>
-              <input id="buildPrefix" placeholder="apps/bekendmakingen/" />
-            </div>
-          </div>
-
-          <div class="row mt8">
-            <div>
-              <label>Branch</label>
-              <input id="buildBranch" value="main" />
-            </div>
-            <div>
-              <label>Max files</label>
-              <input id="buildMax" type="number" value="10" />
-            </div>
-          </div>
-
-          <label class="mt8">Commit message (optioneel)</label>
-          <input id="buildMsg" value="Scaffold via builder" />
-
-          <div class="flex mt12">
-            <button class="btn ok" id="buildBtn">Bouwen & committen</button>
-            <button class="btn" id="buildPrefillBtn">Voorbeeld (Bekendmakingen)</button>
-          </div>
-
-          <pre id="buildOut" class="mt8 small"></pre>
-
-          <div class="hr"></div>
-          <div class="help">
-            Deze actie roept <span class="mono">POST /jobs/create</span> aan met
-            <span class="pill">task: build_from_spec</span>. Vooruitgang zie je bij “Jobs”.
-          </div>
+        <div>
+          <label>Prefix (map)</label>
+          <input id="prefix" type="text" placeholder="apps/bekendmakingen/" />
+        </div>
+        <div>
+          <label>Branch</label>
+          <input id="branch" type="text" placeholder="main" />
+        </div>
+        <div>
+          <label>Max files</label>
+          <input id="maxFiles" type="text" placeholder="10" />
         </div>
       </div>
+      <div class="hr"></div>
+      <p class="small muted">
+        Alles wordt opgeslagen in <span class="mono">localStorage</span>.
+      </p>
+    </div>
+
+    <!-- Chat/commando's -->
+    <div class="card w70">
+      <h3>Praat met de API <span class="badge">pure JSON / dry-run suggesties</span></h3>
+      <div class="chat" id="chat"></div>
+      <div style="height:10px"></div>
+      <label for="input">Je instructie (bijv. “Vat samen: …”, “Draai bekendmakingen”, “Build: {JSON}”, of gewoon vrij NL)</label>
+      <textarea id="input" placeholder="Schrijf hier in gewone taal wat je wilt dat de API doet…"></textarea>
+      <div class="flex" style="margin-top:8px">
+        <button id="sendBtn">Versturen</button>
+        <button class="secondary" id="suggestBtn">Suggestie vragen</button>
+        <button class="secondary" id="clearBtn">Wis gesprek</button>
+        <span id="status" class="muted small"></span>
+      </div>
+
+      <div class="hr"></div>
+      <details>
+        <summary>🧠 Begrijpbare commando’s (klik om te openen)</summary>
+        <ul class="small">
+          <li><b>Samenvatten</b>: “Vat samen: &lt;tekst&gt;”</li>
+          <li><b>Bekendmakingen</b>: “Draai bekendmakingen dry-run” of “Draai bekendmakingen”</li>
+          <li><b>Build</b>: “Build: { ...puur JSON spec... }”</li>
+          <li><b>Commit</b>: “Commit pad=… branch=main message=… inhoud=….”</li>
+          <li><b>Suggestie</b>: typ vrij NL, klik <i>Suggestie vragen</i> → API geeft rooktest/dry-run voorstel in puur JSON</li>
+        </ul>
+      </details>
     </div>
   </div>
 
   <script>
     // ---------- helpers ----------
-    const $ = s => document.querySelector(s);
-    const BASE = () => ($('#apiBase').value || window.location.origin).replace(/\/+$/, '');
-    const KEY  = () => $('#apiKey').value.trim();
-
-    function saveSettings(){
-      localStorage.setItem('apiBase', $('#apiBase').value.trim());
-      localStorage.setItem('apiKey',  $('#apiKey').value.trim());
+    const $ = (sel) => document.querySelector(sel);
+    function saveSettings() {
+      localStorage.setItem('baseUrl', $('#baseUrl').value.trim());
+      localStorage.setItem('x_api_key', $('#apiKey').value.trim());
+      localStorage.setItem('repo', $('#repo').value.trim());
+      localStorage.setItem('prefix', $('#prefix').value.trim());
+      localStorage.setItem('branch', $('#branch').value.trim());
+      localStorage.setItem('maxFiles', $('#maxFiles').value.trim());
+      $('#status').textContent = 'Instellingen opgeslagen.';
+      setTimeout(() => $('#status').textContent = '', 1500);
     }
-    function loadSettings(){
-      $('#apiBase').value = localStorage.getItem('apiBase') || window.location.origin;
-      $('#apiKey').value  = localStorage.getItem('apiKey')  || '';
+    function loadSettings() {
+      $('#baseUrl').value = localStorage.getItem('baseUrl') || location.origin.replace(/\/ui.*/,'');
+      $('#apiKey').value  = localStorage.getItem('x_api_key') || '';
+      $('#repo').value    = localStorage.getItem('repo') || 'stijnvantuijl/llm-cloud-starter';
+      $('#prefix').value  = localStorage.getItem('prefix') || 'apps/bekendmakingen/';
+      $('#branch').value  = localStorage.getItem('branch') || 'main';
+      $('#maxFiles').value= localStorage.getItem('maxFiles') || '10';
     }
-
-    async function api(path, opts={}){
-      const url = path.startsWith('http') ? path : `${BASE()}${path.startsWith('/')?path:`/${path}`}`;
-      const headers = Object.assign({'Content-Type':'application/json'}, opts.headers||{});
-      if (KEY()) headers['X-API-Key'] = KEY();
-      const res = await fetch(url, Object.assign({}, opts, {headers}));
-      if (!res.ok){
-        let err = {status: res.status, data: null};
-        try { err.data = await res.json(); } catch { err.data = await res.text(); }
-        throw err;
+    function addMsg(role, text, html=false) {
+      const div = document.createElement('div');
+      div.className = `msg ${role==='user'?'user':'bot'}`;
+      if (html) div.innerHTML = text; else div.textContent = text;
+      $('#chat').appendChild(div);
+      div.scrollIntoView({behavior:'smooth', block:'end'});
+    }
+    async function api(path, opts={}) {
+      const base = ($('#baseUrl').value || '').trim();
+      const key  = ($('#apiKey').value || '').trim();
+      if (!base || !key) throw new Error('Vul Base URL en X-API-Key in (en klik Opslaan).');
+      const res = await fetch(`${base}${path}`, {
+        ...opts,
+        headers: {
+          'Content-Type': 'application/json',
+          'X-API-Key': key,
+          ...(opts.headers||{})
+        }
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(()=> '');
+        throw new Error(`API ${res.status}: ${t || res.statusText}`);
       }
-      const ct = res.headers.get('content-type') || '';
-      return ct.includes('application/json') ? res.json() : res.text();
+      return res.json();
     }
-
-    // ---------- health ----------
-    async function doHealth(){
-      $('#healthOut').textContent = '…';
-      try{
-        const h = await api('/health');
-        $('#healthOut').textContent = `OK (${JSON.stringify(h)})`;
-      }catch(e){
-        $('#healthOut').textContent = `Fout ${e.status}: ${JSON.stringify(e.data)}`;
-      }
+    async function createJob(task, payload) {
+      return api('/jobs/create', { method: 'POST', body: JSON.stringify({ task, payload }) });
     }
-
-    // ---------- jobs ----------
-    function tag(status){
-      const cls = status==='done' ? 'ok' : status==='running' ? 'run' : 'fail';
-      return `<span class="tag ${cls}">${status}</span>`;
-    }
-    function renderJob(id, j){
-      const pretty = JSON.stringify(j.result ?? j, null, 2);
-      return `
-        <div class="job">
-          <div class="flex">
-            <strong class="mono">${id}</strong>
-            ${tag(j.status)}
-            <span class="small mono">task: ${j.task}</span>
-          </div>
-          <pre class="small mt8">${pretty}</pre>
-        </div>
-      `;
-    }
-    async function refreshJobs(){
-      const box = $('#jobs');
-      box.innerHTML = '<div class="help">Laden…</div>';
-      try{
-        const jobs = await api('/jobs');
-        const html = Object.entries(jobs).reverse().map(([id, j])=>renderJob(id, j)).join('');
-        box.innerHTML = html || '<div class="help">Geen jobs gevonden.</div>';
-      }catch(e){
-        box.innerHTML = `<div class="help">Fout ${e.status}: ${JSON.stringify(e.data)}</div>`;
+    async function pollJob(job_id, onUpdate) {
+      const base = ($('#baseUrl').value || '').trim();
+      const key  = ($('#apiKey').value || '').trim();
+      while (true) {
+        const r = await fetch(`${base}/jobs/${job_id}`, { headers: { 'X-API-Key': key } });
+        const j = await r.json();
+        onUpdate?.(j);
+        if (j.status === 'done' || j.status === 'failed' || j.status === 'error') return j;
+        await new Promise(r => setTimeout(r, 1000));
       }
     }
 
-    // ---------- quick summarize ----------
-    async function quickTest(){
-      const txt = $('#quickText').value.trim();
-      $('#quickOut').textContent = '';
-      if (!txt) { $('#quickOut').textContent = 'Vul wat tekst in.'; return; }
-      try{
-        const out = await api('/jobs/create', {
-          method:'POST',
-          body: JSON.stringify({ task:'summarize', payload:{ text: txt } })
-        });
-        $('#quickOut').textContent = JSON.stringify(out, null, 2);
-        await refreshJobs();
-      }catch(e){
-        $('#quickOut').textContent = `Fout ${e.status}: ${JSON.stringify(e.data,null,2)}`;
+    // ---------- intent mapping (handmatig) ----------
+    function detectIntent(text) {
+      const t = text.trim(); const low = t.toLowerCase();
+
+      const buildMatch = t.match(/^build\s*:\s*({[\s\S]+})\s*$/i);
+      if (buildMatch) {
+        try { return { kind:'build', spec: JSON.parse(buildMatch[1]) }; }
+        catch { return { kind:'error', message:'De build-spec is geen geldige JSON.' }; }
+      }
+      if (low.startsWith('commit')) {
+        const mPad=t.match(/pad\s*=\s*([^\s]+)/i);
+        const mBranch=t.match(/branch\s*=\s*([^\s]+)/i);
+        const mMsg=t.match(/message\s*=\s*([^]+?)\s+(?:inhoud=|content=)/i);
+        const mBody=t.match(/(?:inhoud|content)\s*=\s*([^]+)$/i);
+        if (!mPad || !mBody) return { kind:'error', message:'Commit: minimaal pad=… en inhoud=… nodig.' };
+        return { kind:'commit', path:mPad[1], branch:(mBranch && mBranch[1])||($('#branch').value||'main'),
+                 message:(mMsg && mMsg[1].trim())||'commit via assistant', content:mBody[1] };
+      }
+      if (low.includes('bekendmaking')) {
+        const dry = /dry[-\s]?run|test/.test(low);
+        return { kind:'bekendmakingen', dry_run: dry };
+      }
+      const sumMatch = t.match(/^(?:vat\s+samen|samenvat|samenvatten)\s*:\s*([^]+)$/i);
+      if (sumMatch) return { kind:'summarize', text: sumMatch[1].trim() };
+      if (t.length > 30) return { kind:'summarize', text: t };
+      return { kind:'unknown', raw: t };
+    }
+
+    // ---------- acties ----------
+    async function handleUserInput() {
+      const txt = ($('#input').value || '').trim();
+      if (!txt) return;
+      addMsg('user', txt);
+      $('#input').value = '';
+      $('#status').textContent = 'Aan het verwerken…';
+
+      const intent = detectIntent(txt);
+      const repo   = ($('#repo').value || '').trim();
+      const prefix = ($('#prefix').value || '').trim();
+      const branch = ($('#branch').value || 'main').trim();
+      const maxFiles = parseInt($('#maxFiles').value || '10', 10);
+
+      try {
+        if (intent.kind === 'error') {
+          addMsg('bot', `⚠️ ${intent.message}`);
+        } else if (intent.kind === 'summarize') {
+          const { job_id } = await createJob('summarize', { text: intent.text });
+          const done = await pollJob(job_id);
+          addMsg('bot', done?.result?.summary || JSON.stringify(done));
+        } else if (intent.kind === 'bekendmakingen') {
+          const { job_id } = await createJob('weekly_bekendmakingen', { dry_run: !!intent.dry_run });
+          const done = await pollJob(job_id);
+          addMsg('bot', 'Bekendmakingen job: ' + JSON.stringify(done?.result || done));
+        } else if (intent.kind === 'build') {
+          const spec = intent.spec || {};
+          const payload = {
+            repo, prefix, branch, max_files: maxFiles,
+            ...(spec.goal ? { goal: spec.goal } : {}),
+            ...(spec.files ? { files: spec.files } : {}),
+            ...(spec.commit_message ? { message: spec.commit_message } : {})
+          };
+          const { job_id } = await createJob('build_from_spec', payload);
+          const done = await pollJob(job_id);
+          addMsg('bot', 'Build result: ' + JSON.stringify(done?.result || done));
+        } else if (intent.kind === 'commit') {
+          const { job_id } = await createJob('commit_file', {
+            repo, path: (prefix ? (prefix + intent.path) : intent.path),
+            message: intent.message, branch: intent.branch, content: intent.content
+          });
+          const done = await pollJob(job_id);
+          addMsg('bot', 'Commit: ' + JSON.stringify(done?.result || done));
+        } else {
+          addMsg('bot', 'Ik snapte dit niet helemaal. Probeer: “Vat samen: …”, “Draai bekendmakingen (dry-run)”, “Build: {…}”, of klik op “Suggestie vragen”.');
+        }
+      } catch (err) {
+        addMsg('bot', '❌ Fout: ' + (err?.message || err));
+      } finally {
+        $('#status').textContent = '';
       }
     }
 
-    // ---------- commit file ----------
-    function prefillCommit(){
-      $('#cRepo').value   = 'stijnvantuijl/llm-cloud-starter';
-      $('#cPath').value   = 'apps/bekendmakingen/example.py';
-      $('#cMsg').value    = 'Add file via API';
-      $('#cBranch').value = 'main';
-      $('#cBody').value   = "print('Hallo! Dit bestand is via de API gecommit.')\n";
-    }
-    async function doCommit(){
-      const repo   = $('#cRepo').value.trim();
-      const path   = $('#cPath').value.trim();
-      const branch = $('#cBranch').value.trim() || 'main';
-      const msg    = $('#cMsg').value.trim() || 'Add file via API';
-      const content= $('#cBody').value;
+    async function handleSuggest() {
+      const txt = ($('#input').value || '').trim();
+      if (!txt) { addMsg('bot', 'Typ eerst wat je wilt en klik dan Suggestie.'); return; }
+      addMsg('user', 'Suggestie voor: ' + txt);
+      $('#status').textContent = 'Vraag suggestie (rooktest/dry-run)…';
 
-      if (!repo || !path){ $('#commitOut').textContent = 'Repo en pad zijn verplicht.'; return; }
+      try {
+        const { job_id } = await createJob('suggest', { prompt: txt });
+        const done = await pollJob(job_id);
+        if (!done?.result?.ok) {
+          addMsg('bot', '❌ Suggestie mislukt: ' + JSON.stringify(done?.result || done));
+          $('#status').textContent = '';
+          return;
+        }
+        const sug = done.result.suggestion;
+        const pretty = JSON.stringify(sug, null, 2);
+        addMsg('bot', 'Voorstel (JSON):\n' + pretty);
 
-      $('#commitOut').textContent = 'Ingediend…';
-      try{
-        const r = await api('/jobs/create', {
-          method:'POST',
-          body: JSON.stringify({ task:'commit_file', payload:{ repo, path, branch, message:msg, content } })
-        });
-        $('#commitOut').textContent = JSON.stringify(r, null, 2);
-        await refreshJobs();
-      }catch(e){
-        $('#commitOut').textContent = `Fout ${e.status}: ${JSON.stringify(e.data,null,2)}`;
+        // Bied direct uitvoeren aan
+        const execHtml = `
+          <div>Wil je dit uitvoeren?
+            <button class="btn-inline" id="execBtn">Uitvoeren</button>
+          </div>`;
+        addMsg('bot', execHtml, true);
+
+        // attach listener éénmalig
+        setTimeout(() => {
+          const btn = document.getElementById('execBtn');
+          if (!btn) return;
+          btn.onclick = async () => {
+            try {
+              $('#status').textContent = 'Uitvoeren…';
+              if (sug.type === 'build') {
+                const repo   = ($('#repo').value || '').trim();
+                const prefix = ($('#prefix').value || '').trim();
+                const branch = ($('#branch').value || 'main').trim();
+                const maxFiles = parseInt($('#maxFiles').value || '10', 10);
+                const payload = {
+                  repo, prefix, branch, max_files: maxFiles,
+                  ...(sug.payload.goal ? { goal: sug.payload.goal } : {}),
+                  ...(sug.payload.files ? { files: sug.payload.files } : {}),
+                  ...(sug.payload.commit_message ? { message: sug.payload.commit_message } : {})
+                };
+                const { job_id } = await createJob('build_from_spec', payload);
+                const done2 = await pollJob(job_id);
+                addMsg('bot', 'Build result: ' + JSON.stringify(done2?.result || done2));
+              } else if (sug.type === 'job') {
+                const { job_id } = await createJob(sug.payload.task, sug.payload.payload || {});
+                const done2 = await pollJob(job_id);
+                addMsg('bot', 'Job result: ' + JSON.stringify(done2?.result || done2));
+              } else if (sug.type === 'commit') {
+                const repo   = ($('#repo').value || '').trim();
+                const prefix = ($('#prefix').value || '').trim();
+                const p = sug.payload;
+                const { job_id } = await createJob('commit_file', {
+                  repo,
+                  path: (prefix ? (prefix + p.path) : p.path),
+                  branch: p.branch || ($('#branch').value || 'main'),
+                  message: p.message || 'commit via suggest',
+                  content: p.content || ''
+                });
+                const done2 = await pollJob(job_id);
+                addMsg('bot', 'Commit result: ' + JSON.stringify(done2?.result || done2));
+              } else {
+                addMsg('bot', 'Onbekend suggestie-type: ' + sug.type);
+              }
+            } catch (e) {
+              addMsg('bot', '❌ Uitvoer-fout: ' + (e?.message || e));
+            } finally {
+              $('#status').textContent = '';
+            }
+          };
+        }, 0);
+
+      } catch (e) {
+        addMsg('bot', '❌ Fout bij suggestie: ' + (e?.message || e));
+      } finally {
+        $('#status').textContent = '';
       }
     }
 
-    // ---------- builder ----------
-    function prefillBekendmakingen(){
-      $('#buildGoal').value =
-`Bouw een “Openbare Bekendmakingen” module met:
-
-1) Config & UI
-- Maak bestand: configs/bekendmakingen.json met schema:
-{
-  "municipalities": [
-    { "name": "Rotterdam Zuid",
-      "keywords": ["woningbouw","omgevingsvergunning","transformatie","bestemmingsplan","supermarkt","zorg","maatschappelijk vastgoed"],
-      "recipients": ["mijn@proton.me"] },
-    { "name": "Ridderkerk",
-      "keywords": ["woningbouw","bestemmingsplan","sport","voorzieningen","omgevingsvergunning"],
-      "recipients": ["mijn@proton.me"] },
-    { "name": "Spijkenisse",
-      "keywords": ["centrumontwikkeling","supermarkt","appartementen","omgevingsvergunning"],
-      "recipients": ["mijn@proton.me"] }
-  ]
-}
-
-- UI pagina: app/static/bekendmakingen.html
-  * Velden: API Base URL, X-API-Key (localStorage).
-  * Tabel met Gemeente | Steekwoorden | Ontvangers.
-  * Knoppen: “Gemeente toevoegen”, “Verwijderen”, “Opslaan”.
-  * “Opslaan” commit via /jobs/create task=commit_file naar configs/bekendmakingen.json (branch main).
-
-- Link toevoegen in app/static/control.html naar /ui/bekendmakingen.html (label “Bekendmakingen”).
-
-2) Wekelijkse digest job
-- app/bekendmakingen_job.py:
-  * fetch_items(gemeente, date_from, date_to) -> list[dict]
-    - Gebruik publieke API/feeds overheid.nl/officielebekendmakingen (titel, link, datum, snippet, fulltext).
-  * filter_items(items, keywords) (case-insensitive op title/snippet/fulltext)
-  * summarize_items(items) -> bullets met hyperlink:
-      - [Titel](link): 1-2 NL zinnen + datum + relevantie voor projectontwikkeling.
-    (gebruik bestaande llm_client.chat)
-  * run_weekly_digest(config_path="configs/bekendmakingen.json") -> dict
-    - laad config, verwerk per gemeente, stuur mail (send_mail_plain)
-      subject: "Wekelijkse bekendmakingen – {gemeente}".
-
-- app/tasks.py:
-  * registry["weekly_bekendmakingen"] = task_weekly_bekendmakingen
-  * async def task_weekly_bekendmakingen(payload): return await run_weekly_digest(payload.get("config_path","configs/bekendmakingen.json"))
-
-3) Randvoorwaarden
-- Modern Python, httpx (async), robuuste foutafhandeling.
-- README-sectie met:
-  * UI op /ui/bekendmakingen.html
-  * ENV voor mail: MS_TENANT_ID, MS_CLIENT_ID, MS_CLIENT_SECRET, MS_USER_ID
-  * Handmatig draaien via POST /jobs/create:
-    {"task":"weekly_bekendmakingen","payload":{}}
-- Hergebruik llm_client.chat en send_mail_plain.
-
-Commit alles onder prefix apps/bekendmakingen/.`;
-      $('#buildRepo').value   = 'stijnvantuijl/llm-cloud-starter';
-      $('#buildPrefix').value = 'apps/bekendmakingen/';
-      $('#buildBranch').value = 'main';
-      $('#buildMsg').value    = 'Scaffold bekendmakingen';
-      $('#buildMax').value    = 10;
-    }
-
-    async function runBuild(){
-      const goal    = $('#buildGoal').value.trim();
-      const repo    = $('#buildRepo').value.trim();
-      const prefix  = $('#buildPrefix').value.trim();
-      const branch  = $('#buildBranch').value.trim() || 'main';
-      const message = $('#buildMsg').value.trim() || 'Scaffold via builder';
-      const maxf    = parseInt($('#buildMax').value || '10', 10);
-
-      if (!goal){ $('#buildOut').textContent = 'Vul een doel/opdracht in.'; return; }
-      if (!repo){ $('#buildOut').textContent = 'Repo is verplicht.'; return; }
-
-      $('#buildOut').textContent = 'Ingediend…';
-      try{
-        const r = await api('/jobs/create', {
-          method:'POST',
-          body: JSON.stringify({
-            task:'build_from_spec',
-            payload:{ goal, repo, prefix, branch, message, max_files:maxf }
-          })
-        });
-        $('#buildOut').textContent = `Build gestart. Job-ID: ${r.job_id}`;
-        await refreshJobs();
-      }catch(e){
-        $('#buildOut').textContent = `Fout ${e.status}: ${JSON.stringify(e.data,null,2)}`;
+    // events
+    $('#saveBtn').onclick = saveSettings;
+    $('#healthBtn').onclick = async () => {
+      try {
+        const j = await api('/health');
+        $('#healthOut').textContent = 'OK ' + JSON.stringify(j);
+      } catch (e) {
+        $('#healthOut').textContent = 'Fout: ' + e.message;
       }
-    }
+    };
+    $('#sendBtn').onclick = handleUserInput;
+    $('#suggestBtn').onclick = handleSuggest;
+    $('#clearBtn').onclick = () => { $('#chat').innerHTML = ''; };
 
-    // ---------- init ----------
-    function init(){
-      loadSettings();
+    $('#input').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleUserInput();
+    });
 
-      $('#saveBtn').addEventListener('click', ()=>{ saveSettings(); alert('Opgeslagen.'); });
-      $('#healthBtn').addEventListener('click', doHealth);
-
-      $('#quickBtn').addEventListener('click', quickTest);
-      $('#jobsBtn').addEventListener('click', refreshJobs);
-
-      $('#commitExample').addEventListener('click', prefillCommit);
-      $('#commitBtn').addEventListener('click', doCommit);
-
-      $('#buildPrefillBtn').addEventListener('click', prefillBekendmakingen);
-      $('#buildBtn').addEventListener('click', runBuild);
-
-      refreshJobs();
-    }
-    document.addEventListener('DOMContentLoaded', init);
+    loadSettings();
   </script>
 </body>
 </html>

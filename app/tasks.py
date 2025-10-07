@@ -201,3 +201,16 @@ TASK_REGISTRY = {
     "digest_outlook":  task_digest_outlook,
     "build_from_spec": task_build_from_spec,   # <— NIEUW
 }
+# --- suggest taak registreren ---
+from .suggestor import suggest_from_text
+
+async def task_suggest(payload: dict) -> dict:
+    prompt = (payload or {}).get("prompt", "").strip()
+    if not prompt:
+        return {"ok": False, "error": "Lege prompt"}
+    return await suggest_from_text(prompt)
+
+# In je TASKS registry toevoegen:
+TASKS.update({
+    "suggest": task_suggest,
+})
