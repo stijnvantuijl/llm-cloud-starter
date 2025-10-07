@@ -6,7 +6,6 @@ async def run_weekly_digest(
     dry_run: bool = True,
     days: int = 7,
 ) -> Dict:
-    # Minimalistische rooktest: geen externe API calls, geen mail.
     return {
         "ok": True,
         "dry_run": bool(dry_run),
