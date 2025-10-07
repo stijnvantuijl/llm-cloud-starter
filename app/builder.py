@@ -1,59 +1,47 @@
-# app/builder.py
-"""
-Eenvoudige build helper: voert 'Build: { files: [...] }' specs uit door commits te maken.
-Ondersteunt bewust alleen 'files' (pure JSON). 'goal' kan later via LLM worden toegevoegd.
-"""
+from typing import Dict, Any, List
+import os
 
-from typing import Any, Dict, List
-from .git_helper import commit_file  # gebruikt bestaande commit helper
+from .repo_io import commit_files
 
 class BuildSpecError(Exception):
     pass
 
-async def build_from_spec(
-    goal: str | None,
-    repo: str,
-    prefix: str = "",
-    branch: str = "main",
-    message: str = "Scaffold via build_from_spec",
-    max_files: int = 8,
-    files: List[Dict[str, Any]] | None = None,
-) -> Dict[str, Any]:
+def _norm_repo(repo: str | None) -> str:
+    env_repo = os.getenv("GITHUB_REPO")  # optioneel: "owner/name"
+    return repo or env_repo
+
+async def build_from_spec(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Verwacht minimaal: repo + files[]. Elk item: { path, content }
-    - path: volledig pad in repo (prefix kan optioneel worden voorgeplakt)
-    - content: file-inhoud (string)
-    """
-    if not files:
-        # Voor nu: we ondersteunen alleen pure-file builds. Suggestor kan JSON genereren.
-        raise BuildSpecError("build_from_spec: 'files' ontbreekt; alleen pure JSON files worden ondersteund in v1.")
-
-    if len(files) > max_files:
-        raise BuildSpecError(f"Te veel files ({len(files)} > {max_files}).")
-
-    committed: List[str] = []
-    for f in files:
-        p = f.get("path")
-        c = f.get("content", "")
-        if not p or not isinstance(p, str):
-            raise BuildSpecError("Elk file-item moet een 'path' (string) hebben.")
-        if not isinstance(c, str):
-            raise BuildSpecError("Elk file-item moet 'content' (string) hebben.")
-
-        full_path = (prefix + p) if prefix and not p.startswith(prefix) else p
-        await commit_file(
-            repo=repo,
-            path=full_path,
-            message=message,
-            content=c,
-            branch=branch,
-        )
-        committed.append(full_path)
-
-    return {
-        "ok": True,
-        "repo": repo,
-        "branch": branch,
-        "committed": committed,
-        "note": "Build uitgevoerd via build_from_spec (pure files)."
+    Verwacht JSON als:
+    {
+      "summary": "Bekendmakingen v1 UI + config",
+      "commit_message": "scaffold ...",
+      "repo": "owner/name",           (optioneel; anders env GITHUB_REPO)
+      "branch": "main",               (optioneel)
+      "files": [
+        {"path": "apps/..../x.html", "content": "<!doctype html>..."},
+        ...
+      ]
     }
+    """
+    if not isinstance(spec, dict):
+        raise BuildSpecError("Spec moet een object zijn.")
+
+    files = spec.get("files") or []
+    if not files or not all(isinstance(f, dict) and f.get("path") for f in files):
+        raise BuildSpecError("Spec.files moet een lijst zijn met objecten met 'path' en 'content'.")
+
+    repo = _norm_repo(spec.get("repo"))
+    if not repo:
+        raise BuildSpecError("Repo niet opgegeven (spec.repo of env GITHUB_REPO verplicht).")
+
+    branch = spec.get("branch") or os.getenv("GITHUB_BRANCH", "main")
+    message = spec.get("commit_message") or spec.get("summary") or "build_from_spec commit"
+
+    token = os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise BuildSpecError("GITHUB_TOKEN ontbreekt als env var.")
+
+    # committen:
+    res = await commit_files(token=token, repo=repo, files=files, message=message, branch=branch)
+    return {"ok": True, "summary": spec.get("summary"), "result": res}

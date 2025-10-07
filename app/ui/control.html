@@ -1,0 +1,76 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LLM Control Panel</title>
+<style>
+  body{font-family:system-ui,Arial,sans-serif;background:#0b1020;color:#e9edf7;margin:0}
+  main{max-width:900px;margin:24px auto;padding:0 16px}
+  h1{font-size:20px} label{display:block;margin:8px 0 4px;color:#aab7ff}
+  input,textarea{width:100%;box-sizing:border-box;background:#0e1530;color:#e9edf7;border:1px solid #223069;border-radius:10px;padding:10px 12px}
+  button{background:#2d47ff;color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;margin-right:8px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  pre{background:#0e1530;border:1px solid #223069;border-radius:10px;padding:12px;overflow:auto}
+</style>
+<main>
+  <h1>LLM Control Panel</h1>
+
+  <section>
+    <label>API Base URL</label>
+    <input id="base" placeholder="https://<jouw-render-host>">
+    <label>X-API-Key</label>
+    <input id="key" placeholder="vul je sleutel in">
+    <div class="row" style="margin-top:8px">
+      <button id="save">Opslaan</button>
+      <button id="health">Health check</button>
+      <span id="out"></span>
+    </div>
+  </section>
+
+  <section style="margin-top:24px">
+    <label>Snelle test (task “build_from_spec”)</label>
+    <button id="selftest">Selftest commit (tmp/selftest.txt)</button>
+    <pre id="log" style="margin-top:8px"></pre>
+  </section>
+
+  <section style="margin-top:24px">
+    <label>Jobs</label>
+    <button id="refresh">Ververs jobs</button>
+    <pre id="jobs"></pre>
+  </section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const ls=(k,v)=>v===undefined?localStorage.getItem(k)||'':localStorage.setItem(k,v);
+
+function base(){ return $('#base').value.trim() || location.origin.replace(/\/ui.*/,''); }
+function key(){ return $('#key').value.trim() || ''; }
+
+$('#base').value = ls('baseUrl') || base();
+$('#key').value  = ls('x_api_key') || '';
+$('#save').onclick = ()=>{ ls('baseUrl',$('#base').value); ls('x_api_key',$('#key').value); $('#out').textContent='Opgeslagen'; setTimeout(()=>$('#out').textContent='',1500); };
+
+$('#health').onclick = async()=>{
+  const r = await fetch(base()+'/health'); const j = await r.json();
+  $('#log').textContent = JSON.stringify(j,null,2);
+};
+
+$('#selftest').onclick = async ()=>{
+  const body = {
+    task: 'build_from_spec',
+    payload: {
+      summary: 'selftest',
+      commit_message: 'selftest commit',
+      repo: ls('repo') || null,
+      branch: ls('branch') || 'main',
+      files: [{ path:'tmp/selftest.txt', content:'ok\n' }]
+    }
+  };
+  const r = await fetch(base()+'/jobs/create',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':key()}, body:JSON.stringify(body)});
+  const j = await r.json(); $('#log').textContent = JSON.stringify(j,null,2);
+};
+
+$('#refresh').onclick = async ()=>{
+  const r = await fetch(base()+'/jobs', {headers:{'X-API-Key':key()}});
+  const j = await r.json(); $('#jobs').textContent = JSON.stringify(j,null,2);
+};
+</script>

@@ -1,0 +1,106 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Assistant</title>
+<style>
+  body{font-family:system-ui,Arial,sans-serif;background:#0b1020;color:#e9edf7;margin:0}
+  main{max-width:1000px;margin:24px auto;padding:0 16px}
+  h1{font-size:20px}
+  textarea{width:100%;min-height:140px;background:#0e1530;color:#e9edf7;border:1px solid #223069;border-radius:10px;padding:12px}
+  pre{background:#0e1530;border:1px solid #223069;border-radius:10px;padding:12px;overflow:auto}
+  button{background:#2d47ff;color:#fff;border:none;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600;margin-right:8px}
+  input{background:#0e1530;color:#e9edf7;border:1px solid #223069;border-radius:10px;padding:8px 10px}
+  .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+</style>
+<main>
+  <h1>Assistant (praat in tekst, of plak “Build: {JSON}”)</h1>
+
+  <div class="row">
+    <label>Repo (owner/name)</label><input id="repo" placeholder="owner/name">
+    <label>Branch</label><input id="branch" value="main">
+    <label>API Base</label><input id="base">
+    <label>Key</label><input id="key">
+    <button id="save">Opslaan</button>
+  </div>
+
+  <p style="margin-top:12px">Je instructie (bv. “Bouw bekendmakingen UI…”, “Build: {...}”, of “Jobs: lijst”).</p>
+  <textarea id="prompt" placeholder="Schrijf hier in NL of met Build:{...}"></textarea>
+  <div class="row" style="margin-top:8px">
+    <button id="send">Versturen</button>
+    <button id="jobs">Jobs</button>
+  </div>
+
+  <pre id="out" style="margin-top:12px"></pre>
+</main>
+<script>
+const $=s=>document.querySelector(s); const ls=(k,v)=>v===undefined?localStorage.getItem(k)||'':localStorage.setItem(k,v);
+$('#repo').value  = ls('repo')||'';
+$('#branch').value= ls('branch')||'main';
+$('#base').value  = ls('baseUrl')||location.origin.replace(/\/ui.*/,'');
+$('#key').value   = ls('x_api_key')||'';
+$('#save').onclick= ()=>{ ls('repo',$('#repo').value); ls('branch',$('#branch').value); ls('baseUrl',$('#base').value); ls('x_api_key',$('#key').value); $('#out').textContent='Opgeslagen'; };
+
+function base(){return $('#base').value.trim();} function key(){return $('#key').value.trim();}
+
+async function postJob(task,payload){
+  const r = await fetch(base()+'/jobs/create',{method:'POST',headers:{'Content-Type':'application/json','X-API-Key':key()}, body:JSON.stringify({task,payload})});
+  return r.json();
+}
+
+function tryParseBuild(txt){
+  const m = txt.match(/Build\s*:\s*({[\s\S]*})/i);
+  if(!m) return null;
+  try{ return JSON.parse(m[1]); }catch(_){ return null; }
+}
+
+$('#send').onclick = async ()=>{
+  const t = $('#prompt').value.trim();
+  // 1) Probeer Build:{...}
+  const build = tryParseBuild(t);
+  if(build){
+    if(!build.repo) build.repo = $('#repo').value || null;
+    if(!build.branch) build.branch = $('#branch').value || 'main';
+    const j = await postJob('build_from_spec', build);
+    $('#out').textContent = JSON.stringify(j,null,2);
+    return;
+  }
+  // 2) Ruwe opdrachten
+  if(/^jobs\s*:/i.test(t)){ // "Jobs:" -> lijst
+    const r = await fetch(base()+'/jobs', {headers:{'X-API-Key':key()}});
+    $('#out').textContent = JSON.stringify(await r.json(),null,2);
+    return;
+  }
+  if(/^raw\s*:/i.test(t)){ // "Raw: path=..., repo=..., branch=..."
+    const p = {};
+    t.split(",").forEach(s=>{
+      const kv=s.split("=").map(x=>x.trim());
+      if(kv.length===2) p[kv[0].toLowerCase()]=kv[1];
+    });
+    if(!p.path){ $('#out').textContent='Gebruik: Raw: path=..., repo=<owner/name>(opt.), branch=<...>(opt.)'; return; }
+    const payload = { path:p.path, repo: p.repo||($('#repo').value||null), branch: p.branch||($('#branch').value||'main') };
+    const j = await postJob('raw_file', payload);
+    $('#out').textContent = JSON.stringify(j,null,2);
+    return;
+  }
+  // 3) Vrij NL → eerste versie: als ‘build bekendmakingen’ in tekst staat, laat voorbeeld-JSON zien
+  if(/bekendmakingen/i.test(t)){
+    const demo = {
+      summary: "Bekendmakingen v1 UI + config",
+      commit_message: "scaffold bekendmakingen ui+config",
+      repo: $('#repo').value || null,
+      branch: $('#branch').value || 'main',
+      files: [
+        { path:"apps/bekendmakingen/configs/bekendmakingen.json", content: "{\n  \"municipalities\": [],\n  \"keywords\": [\"Didam arrest\",\"anterieure overeenkomst\",\"grondverkoop\",\"omgevingsvisie\"],\n  \"routes\": [{\"emails\": []}]\n}\n" }
+      ]
+    };
+    $('#out').textContent = "Ik zou dit committen met Build:\n\n"+JSON.stringify(demo,null,2)+"\n\nKopieer dat hierboven als Build:{...} en druk nogmaals.";
+    return;
+  }
+  $('#out').textContent = "Onbekende instructie. Voorbeelden:\n- Build: { ... }  (JSON)\n- Jobs: (lijst)\n- Raw: path=apps/..., repo=owner/name, branch=main";
+};
+
+$('#jobs').onclick = async ()=>{
+  const r = await fetch(base()+'/jobs', {headers:{'X-API-Key':key()}});
+  $('#out').textContent = JSON.stringify(await r.json(),null,2);
+};
+</script>

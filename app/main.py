@@ -1,215 +1,94 @@
-# app/main.py
-from __future__ import annotations
-
-import os
-import uuid
 import asyncio
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+import os
+import time
+import uuid
+from typing import Dict, Any
 
-from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
 
-# === Optioneel beschikbare helpers in dit project ===
-# - app.llm_client.chat : bestaande LLM helper
-# - app.tasks : bevat individuele taakfuncties (bijv. summarize, rewrite, commit_file, digest_outlook, build_from_spec, etc.)
-#
-# Deze imports falen niet als de modules ontbreken; we valideren bij gebruik.
-try:
-    from .llm_client import chat as llm_chat  # type: ignore
-except Exception:
-    llm_chat = None  # wordt bij /chat gecontroleerd
+from .tasks import TASKS
 
-try:
-    from . import tasks as project_tasks  # type: ignore
-except Exception:
-    project_tasks = None  # wordt bij job-run gecontroleerd
+app = FastAPI()
 
-# =========================
-# Config & App setup
-# =========================
-API_ACCESS_KEY = os.getenv("API_ACCESS_KEY", "").strip()
+# In-memory job store (simpel, genoeg voor deze control-plane)
+JOBS: Dict[str, Dict[str, Any]] = {}
 
-app = FastAPI(title="LLM Cloud Starter")
-
-# CORS (laat Hoppscotch/localhost e.d. toe)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_headers=["*"],
-    allow_methods=["*"],
-)
-
-# Statische UI (verwacht map: app/static)
-# Je bedient de Control Panel op /ui/control.html
-ui_dir = os.path.join(os.path.dirname(__file__), "static")
-if os.path.isdir(ui_dir):
-    app.mount("/ui", StaticFiles(directory=ui_dir, html=True), name="ui")
-
-
-# =========================
-# Eenvoudig in-memory job-store
-# =========================
-# In productie kun je dit vervangen door Redis/DB of je bestaande scheduler.
-JobsStore: Dict[str, Dict[str, Any]] = {}
-
-
-def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
-async def _run_task(job_id: str, task_name: str, payload: Dict[str, Any]) -> None:
-    """
-    Voert de taak async uit en bewaart resultaat/status in JobsStore.
-    We proberen eerst een taakfunctie in app.tasks te vinden met naam:
-      - task_<task_name>
-      - of exact <task_name> als callabele
-    Valt terug naar simpele 'summarize' met LLM als die bestaat.
-    """
-    JobsStore[job_id]["status"] = "running"
-    JobsStore[job_id]["started_at"] = _now_iso()
-
-    try:
-        result: Any = None
-
-        # 1) Project-tasks module?
-        if project_tasks is not None:
-            # Probeer task_<name>
-            fn = getattr(project_tasks, f"task_{task_name}", None)
-            if fn is None:
-                # of direct <name> als callabele
-                fn = getattr(project_tasks, task_name, None)
-
-            if fn is not None:
-                if asyncio.iscoroutinefunction(fn):
-                    result = await fn(payload)
-                else:
-                    # Bel synchroon in thread zodat event loop niet blokt
-                    result = await asyncio.to_thread(fn, payload)
-
-        # 2) Fallback: simpele summarize via llm_client.chat
-        if result is None and llm_chat is not None and task_name == "summarize":
-            text = payload.get("text", "")
-            sys = "Vat kort samen in het Nederlands."
-            result = await llm_chat(messages=[{"role": "system", "content": sys},
-                                             {"role": "user", "content": text}])
-
-        if result is None:
-            raise RuntimeError(
-                f"Geen taak-implementatie gevonden voor '{task_name}' en geen bruikbare fallback."
-            )
-
-        JobsStore[job_id]["status"] = "done"
-        JobsStore[job_id]["result"] = result
-        JobsStore[job_id]["finished_at"] = _now_iso()
-    except Exception as e:
-        JobsStore[job_id]["status"] = "error"
-        JobsStore[job_id]["error"] = repr(e)
-        JobsStore[job_id]["finished_at"] = _now_iso()
-
-
-# =========================
-# Modellen
-# =========================
-class ChatRequest(BaseModel):
-    messages: list[dict] = Field(default_factory=list)
-
-
-class CreateJobRequest(BaseModel):
-    task: str
-    payload: Dict[str, Any] = Field(default_factory=dict)
-
-
-# =========================
-# Helpers
-# =========================
-def _require_api_key(x_api_key: Optional[str]) -> None:
-    if not API_ACCESS_KEY:
-        # Geen key in omgeving → beveiliging uit (alleen voor demo/doel)
-        return
-    if not x_api_key or x_api_key.strip() != API_ACCESS_KEY:
+def _require_api_key(req: Request):
+    expect = os.getenv("X_API_KEY")
+    given = req.headers.get("X-API-Key")
+    if expect and given != expect:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
-
-# =========================
-# Routes
-# =========================
-@app.get("/", include_in_schema=False)
-async def root() -> RedirectResponse:
-    # Redirect naar UI (control panel)
-    return RedirectResponse(url="/ui/control.html", status_code=307)
-
-
 @app.get("/health")
-async def health() -> dict:
-    return {"ok": True, "time": _now_iso()}
-
-
-@app.post("/chat")
-async def chat(req: ChatRequest, x_api_key: Optional[str] = Header(None)) -> JSONResponse:
-    _require_api_key(x_api_key)
-
-    if llm_chat is None:
-        raise HTTPException(status_code=500, detail="LLM client niet beschikbaar (llm_client.chat ontbreekt)")
-
-    try:
-        out = await llm_chat(messages=req.messages)
-        return JSONResponse({"output": out})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Chat error: {e}")
-
+async def health():
+    return {
+        "ok": True,
+        "has_build_from_spec": "build_from_spec" in TASKS,
+        "tasks": sorted(TASKS.keys())[:20],
+        "time": time.time(),
+    }
 
 @app.get("/jobs")
-async def list_jobs(x_api_key: Optional[str] = Header(None)) -> dict:
-    _require_api_key(x_api_key)
-    # Beperkte weergave (geen grote inhoud dumpen)
-    return {
-        job_id: {
-            "status": data.get("status"),
-            "task": data.get("task"),
-            "created_at": data.get("created_at"),
-            "started_at": data.get("started_at"),
-            "finished_at": data.get("finished_at"),
-        }
-        for job_id, data in JobsStore.items()
-    }
-
+async def list_jobs(req: Request):
+    _require_api_key(req)
+    # laatste eerst
+    return dict(reversed(list(JOBS.items())))
 
 @app.get("/jobs/{job_id}")
-async def get_job(job_id: str, x_api_key: Optional[str] = Header(None)) -> dict:
-    _require_api_key(x_api_key)
-    data = JobsStore.get(job_id)
-    if not data:
+async def get_job(job_id: str, req: Request):
+    _require_api_key(req)
+    if job_id not in JOBS:
         raise HTTPException(status_code=404, detail="job not found")
-    return data
-
+    return JOBS[job_id]
 
 @app.post("/jobs/create")
-async def create_job(req: CreateJobRequest, x_api_key: Optional[str] = Header(None)) -> dict:
-    """
-    **Belangrijk**: hier GEEN `await` op een sync-functie!
-    We starten een achtergrond-taak met asyncio.create_task.
-    Dat was de oorzaak van je 500: "object str can't be used in 'await' expression".
-    """
-    _require_api_key(x_api_key)
+async def create_job(req: Request):
+    _require_api_key(req)
+    body = await req.json()
+    task_name = body.get("task")
+    payload = body.get("payload", {})
 
-    task_name = (req.task or "").strip()
-    if not task_name:
-        raise HTTPException(status_code=422, detail="task is required")
+    if task_name not in TASKS:
+        raise HTTPException(status_code=400, detail=f"task '{task_name}' niet beschikbaar")
 
     job_id = str(uuid.uuid4())
-    JobsStore[job_id] = {
+    JOBS[job_id] = {
         "id": job_id,
         "task": task_name,
-        "payload": req.payload,
-        "status": "scheduled",
-        "created_at": _now_iso(),
+        "payload": payload,
+        "status": "running",
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "started_at": None,
+        "finished_at": None,
+        "result": None,
+        "error": None,
     }
 
-    # Start async job
-    asyncio.create_task(_run_task(job_id, task_name, req.payload or {}))
+    async def _run():
+        JOBS[job_id]["started_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        try:
+            fn = TASKS[task_name]
+            # sommige taken zijn sync; andere async
+            if asyncio.iscoroutinefunction(fn):
+                res = await fn(payload)
+            else:
+                res = await asyncio.to_thread(fn, payload)  # fallback
+            JOBS[job_id]["result"] = res
+            JOBS[job_id]["status"] = "done"
+        except Exception as e:
+            JOBS[job_id]["error"] = repr(e)
+            JOBS[job_id]["status"] = "error"
+        finally:
+            JOBS[job_id]["finished_at"] = time.strftime("%Y-%m-%dT%H:%M:%S%z")
 
+    asyncio.create_task(_run())
     return {"job_id": job_id}
+
+# statische UI
+app.mount("/ui", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "ui"), html=True), name="ui")
+
+@app.get("/")
+def root():
+    return HTMLResponse('<meta http-equiv="refresh" content="0;url=/ui/control.html">')
