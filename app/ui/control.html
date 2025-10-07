@@ -151,12 +151,17 @@
   }
   loadSettings();
 
-  // Save settings
-  $('#saveBtn').onclick = () => {
-    saveLocal('baseUrl', baseInput.value.trim());
-    saveLocal('x_api_key', keyInput.value.trim());
-    toast($('#healthOut'), 'Opgeslagen');
-  };
+$('#saveBtn').onclick = () => {
+  const base = baseInput.value.trim();
+  const key  = keyInput.value.trim();
+  saveLocal('baseUrl', base);
+  saveLocal('x_api_key', key);
+
+  // ook direct de velden updaten
+  baseInput.value = base;
+  keyInput.value  = key;
+
+  toast($('#healthOut'), 'Opgeslagen ✓');
 
   // Health check
   async function apiGet(path){
